@@ -21,11 +21,8 @@ public class ReferencePointManager : MonoBehaviour
 
     private static List<ARRaycastHit> hits = new List<ARRaycastHit>();
 
-    [SerializeField]
-    private Text debugLog;
 
-    [SerializeField]
-    private Text referencePointCount;
+
 
     [SerializeField]
     private Button toggleButton;
@@ -51,7 +48,7 @@ public class ReferencePointManager : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+       
     }
 
     // Update is called once per frame
@@ -59,6 +56,8 @@ public class ReferencePointManager : MonoBehaviour
     {
         if(referencePoints.Count >= 2)
         {
+            usaPlane.SetActive(true);
+
             float aX = referencePoints[0].transform.position.x;
             float aZ = referencePoints[0].transform.position.z;
 
@@ -93,12 +92,10 @@ public class ReferencePointManager : MonoBehaviour
             if(referencePoint == null)
             {
                 Debug.Log("There was an error creating a reference point here");
-                debugLog.text += "There was an error creating a reference point here";
             }
             else if(!planeSearch)
             {
                 referencePoints.Add(referencePoint);
-                referencePointCount.text = $"Reference Point Count: {referencePoints.Count}";
             }
         }
         

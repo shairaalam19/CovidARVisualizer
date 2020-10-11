@@ -1,14 +1,20 @@
-﻿using System;
+﻿// Author(s): Ryder Roth, Jack Hael, Shaira Alam
+// Date: 10/11/2020
+// Description: forms a query based off of the given factors, 
+//              then sends it to google bigquery and assembles the data into 
+//              an array list of statedatas and returns the size of that list.
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Google.Cloud.BigQuery.V2;
 using Google.Apis.Auth;
-using UnityEditor.PackageManager;
+//using UnityEditor.PackageManager;
 using System.Data.SqlTypes;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Google.Apis.Auth.OAuth2;
 
 /*
 SELECT
@@ -34,22 +40,6 @@ ORDER BY
   date;
 */
 
-/*
- * SELECT
-  cumulative_confirmed,
-  subregion1_name,
-  subregion2_name,
-FROM
-  bigquery-public-data.covid19_open_data.covid19_open_data
-WHERE
-  date = "2020-10-05"
-AND
-  country_code = "US"
-AND
-  subregion1_code = "AZ"
- */
-
-
 
 
 public class DataGrabber
@@ -60,7 +50,7 @@ public class DataGrabber
                    subtable;                               //subtable that we need to grab the data from within our table
     private String[] select = new String[10];              //commas to separate selects
     private String[] where = new String[10];               //if more than one where, AND to separate each where
-
+    int getDataSize = 0;
 
 
     //constructor
@@ -118,9 +108,11 @@ public class DataGrabber
         if(this.select[0].CompareTo("") != 0)
         {
             query += this.select[0];
-            for(int i = 1; i < 10; i++)  //start at index 1, b/c 0 was filled
+            int i = 1;
+            while( i < 10 && this.select[i].CompareTo("") != 0)  //start at index 1, b/c 0 was filled
             {
                 query += ", \n" + this.select[i];
+                i++;
             }
             query += "\n";
         }
@@ -133,58 +125,75 @@ public class DataGrabber
         if(this.where[0].CompareTo("") != 0)
         {
             query += where[0];
-            for(int i = 1; i < 10; i++)     //start at index 1, b/c 0 was filled
+            int i = 1;
+            while(i < 10 && this.where[i].CompareTo("") != 0)     //start at index 1, b/c 0 was filled
             {
                 query += "\nAND\n";
                 query += this.where[i];
+                i++;
             }
         }
 
         return query;
     }
 
+    //Method to send query and get response and then assemble the response.
     public ArrayList GetData()
     {
-        BigQueryClient ourClient = BigQueryClient.Create(projectCode);
-        String query = this.FormQuery();
 
-        BigQueryResults results = ourClient.ExecuteQuery(query, parameters: null);
-        ArrayList data = new ArrayList();
-        String stringToAdd;
-        foreach (BigQueryRow row in results)
+        ArrayList tempArray = new ArrayList();
+        try
         {
-            stringToAdd = ""; //make empty each iteration
-            for(int i = 0; i < 10; i++)
+            //tempArray.Add(System.IO.Directory.GetCurrentDirectory());
+            //var credentials = GoogleCredential.FromFile("./Assets/Scripts/Additional/authKey.json");
+            //var credentials = GoogleCredential.FromFile("/Additional/authkey.json");
+            var credentials = GoogleCredential.FromJson("Not Today");
+            BigQueryClient ourClient = BigQueryClient.Create(projectCode, credentials);
+            String query = this.FormQuery();
+            Debug.Log(query);
+            BigQueryResults results = ourClient.ExecuteQuery(query, parameters: null);
+
+            ArrayList stateData = new ArrayList();
+            StateData currentState = new StateData();
+
+            foreach (BigQueryRow row in results)
             {
-                if(this.select[i].CompareTo("") != 0)
+                String date = Convert.ToString(row["date"]);
+                String country = Convert.ToString(row["country_code"]);
+                String state = Convert.ToString(row["subregion1_name"]);
+                String coordinates = Convert.ToString(row["location_geometry"]);
+                int confirmedCases = Convert.ToInt32(row["cumulative_confirmed"]);
+                int deceased = Convert.ToInt32(row["cumulative_deceased"]);
+
+                if (currentState.IsValidInsertion(state))
                 {
-                    stringToAdd += String.Format($"%s: {row["%s"]}", this.select[i]);
-                }   
+                    currentState.AddRow(country, state, coordinates, date, confirmedCases, deceased);
+                }
+                else
+                {
+                    stateData.Add(currentState);
+                    currentState = new StateData();
+                    currentState.AddRow(country, state, coordinates, date, confirmedCases, deceased);
+                    getDataSize++;
+                }
             }
-            data.Add(stringToAdd);
+            Debug.Log("Made it to data");
+            return stateData;
+        }catch(Exception e)
+        {
+            tempArray.Add(e.ToString());
+            return tempArray;
         }
-
-        return data;
     }
-    // Console.WriteLine($"Name: {row["player"]}; Score: {row["score"]}; Level: {row["level"]}");
 
-    /*
-SELECT
-  date,
-  country_code,
-  subregion1_name,
-  location_geometry,
-  cumulative_confirmed,
-  cumulative_deceased,
-  new_confirmed,
-  new_deceased
-FROM
-  bigquery-public -data.covid19_open_data.covid19_open_data
-WHERE
-  date = "2020-10-01"
-  AND subregion2_code IS NULL
-  AND country_code = "US"
-*/
+    //returns the size of the ArrayList GetData returns. 
+    public int GetDataSize()
+    {
+        return getDataSize;
+    }
+
+    // example of outputting the data to console
+    // Console.WriteLine($"Name: {row["player"]}; Score: {row["score"]}; Level: {row["level"]}");
 
 
 
