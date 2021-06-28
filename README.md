@@ -28,3 +28,4 @@ google-bigquery
 sql
 unity
 
+Hackathon Site: https://devpost.com/software/covid-19-augmented-reality-visualizer
